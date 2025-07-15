@@ -1,153 +1,321 @@
-# MCP Apple Reminders Server
+# Apple Reminders MCP Server - Documentation
 
-A Model Context Protocol (MCP) server that provides programmatic access to Apple Reminders through FastMCP. This server allows you to create, read, list, and delete reminders using AppleScript integration.
+## README.md
+
+```markdown
+# Apple Reminders MCP Server
+
+A Model Context Protocol (MCP) server that enables AI assistants to interact with Apple Reminders on macOS. This server provides tools to create, read, list, and delete reminders programmatically through AppleScript.
 
 ## Features
 
-- **Create Reminders**: Add new reminders with due dates, times, notes, and locations
-- **Get Reminders**: Retrieve reminders from specific lists (completed or pending)
-- **List Reminder Lists**: View all available reminder lists
-- **Delete Reminders**: Remove reminders by name from specific lists or all lists
+- ✅ Create reminders with due dates, times, notes, and locations
+- 📋 List all reminder lists
+- 🔍 Fetch reminders from specific lists (completed or pending)
+- 🗑️ Delete reminders by name
+- 🤖 Compatible with Claude Desktop and other MCP clients
+- 🍎 Native macOS integration via AppleScript
 
 ## Prerequisites
 
-- macOS (required for Apple Reminders and AppleScript)
-- Python 3.7+
+- macOS (required for AppleScript)
+- Python 3.10 or higher
 - Apple Reminders app
 
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd mcp-apple-reminders
+git clone https://github.com/yourusername/apple-reminder-mcp-server.git
+cd apple-reminder-mcp-server
 ```
 
-2. Install dependencies:
+2. Create a virtual environment:
 ```bash
-pip install fastmcp python-dotenv
+python3 -m venv .venv
+source .venv/bin/activate  # On macOS/Linux
 ```
 
-3. Create a `.env` file in the project root:
-```env
-HOST=localhost
-PORT=8000
+3. Install dependencies:
+```bash
+pip install mcp fastmcp python-dotenv
 ```
+
+## Configuration
+
+The server uses stdio transport by default, no additional configuration needed.
 
 ## Usage
 
 ### Running the Server
 
 ```bash
-python mcp_apple_reminders.py
+python3 server.py
 ```
 
-The server will start on the configured host and port (default: localhost:8000).
+### Testing with MCP Inspector
 
-### Available Tools
+The MCP Inspector is a web-based tool for testing MCP servers. Follow these steps to test your server:
 
-#### 1. Create Reminder
+#### 1. Launch MCP Inspector
 
-Create a new reminder with specified details.
+```bash
+npx @modelcontextprotocol/inspector stdio "python3 server.py"
+```
+
+This will:
+- Start a proxy server on `localhost:6277`
+- Open the inspector interface in your browser at `http://localhost:6274`
+- Display a session token for authentication
+
+#### 2. Configure Connection Settings
+
+When the inspector opens in your browser, configure the connection with these settings:
+
+- **Transport Type**: `STDIO`
+- **Command**: `python3`
+- **Arguments**: `/Users/shreyanshjain/apple_reminder_mcp_server/server.py`
+
+> Note: Replace the path in Arguments with the actual path to your server.py file
+
+#### 3. Connect to the Server
+
+Click "Connect" to establish connection with your MCP server. You should see:
+- Server status change to "Connected"
+- List of available tools in the interface
+
+#### 4. Test the Tools
+
+**Example: Testing create_reminder**
+
+1. Select `create_reminder` from the tools list
+2. Fill in the parameters:
+   ```json
+   {
+     "title": "Test Reminder",
+     "due_date": "2024-12-25",
+     "due_time": "140000",
+     "notes": "This is a test reminder",
+     "list_name": "Reminder Created using Agent"
+   }
+   ```
+3. Click "Execute"
+4. Check the response:
+   ```json
+   {
+     "result": "Reminder 'Test Reminder' created successfully in list 'Reminder Created using Agent'. AppleScript Output: "
+   }
+   ```
+
+**Example: Testing list_reminder_lists**
+
+1. Select `list_reminder_lists` from the tools list
+2. No parameters needed
+3. Click "Execute"
+4. View your reminder lists in the response
+
+**Example: Testing get_reminder**
+
+1. Select `get_reminder` from the tools list
+2. Fill in parameters:
+   ```json
+   {
+     "list_name": "Reminder Created using Agent",
+     "completed": false,
+     "limit": 10
+   }
+   ```
+3. Click "Execute"
+4. View the reminders in the specified list
+
+### Integration with Claude Desktop
+
+Add to your Claude Desktop configuration file:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "apple-reminders": {
+      "command": "python3",
+      "args": ["/path/to/your/apple_reminder_mcp_server/server.py"]
+    }
+  }
+}
+```
+
+## Available Tools
+
+### 1. create_reminder
+
+Creates a new reminder in Apple Reminders.
 
 **Parameters:**
 - `title` (required): The title of the reminder
-- `due_date` (required): Due date as datetime.date object
-- `due_time` (optional): Due time in HHMMSS format (default: 09:00:00)
-- `notes` (optional): Additional notes for the reminder
+- `due_date` (required): Due date in YYYY-MM-DD format
+- `due_time` (optional): Time in HHMMSS format (default: 090000 for 9 AM)
+- `notes` (optional): Additional notes/body text
 - `list_name` (optional): Target list name (default: "Reminder Created using Agent")
 - `location` (optional): Location for location-based reminders
 
-**Example:**
-```python
-await create_reminder(
-    title="Team Meeting",
-    due_date=datetime.date(2024, 12, 25),
-    due_time="143000",  # 2:30 PM
-    notes="Discuss Q4 goals",
-    list_name="Work"
-)
+**Example Request:**
+```json
+{
+  "title": "Team Meeting",
+  "due_date": "2024-12-25",
+  "due_time": "140000",
+  "notes": "Discuss Q1 goals",
+  "list_name": "Work"
+}
 ```
 
-#### 2. Get Reminders
+**Example Response:**
+```json
+{
+  "result": "Reminder 'Team Meeting' created successfully in list 'Work'. AppleScript Output: "
+}
+```
 
-Retrieve reminders from a specific list.
+### 2. get_reminder
+
+Fetches reminders from a specific list.
 
 **Parameters:**
-- `list_name` (required): The name of the reminder list
-- `completed` (optional): Whether to fetch completed reminders (default: False)
+- `list_name` (required): Name of the reminder list
+- `completed` (optional): Whether to fetch completed reminders (default: false)
 - `limit` (optional): Maximum number of reminders to return (default: 20)
 
-**Example:**
-```python
-await get_reminder(
-    list_name="Work",
-    completed=False,
-    limit=10
-)
+**Example Response:**
+```json
+[
+  {
+    "name": "Team Meeting",
+    "body": "Discuss Q1 goals",
+    "due_date": "Wednesday, December 25, 2024 at 2:00:00 PM",
+    "completed": false
+  }
+]
 ```
 
-**Returns:** JSON array of reminders with name, body, due_date, and completed status.
+### 3. list_reminder_lists
 
-#### 3. List Reminder Lists
+Returns all available reminder lists.
 
-Get all available reminder lists.
+**Parameters:** None
 
-**Example:**
-```python
-await list_reminder_lists()
+**Example Response:**
+```json
+[
+  "Reminders",
+  "Work",
+  "Personal",
+  "Shopping",
+  "Reminder Created using Agent"
+]
 ```
 
-**Returns:** JSON array of list names.
+### 4. delete_reminder
 
-#### 4. Delete Reminder
-
-Delete a reminder by name.
+Deletes a reminder by name.
 
 **Parameters:**
 - `name` (required): The exact name of the reminder to delete
 - `list_name` (optional): Specific list to search in (searches all lists if not provided)
 
-**Example:**
-```python
-await delete_reminder(
-    name="Team Meeting",
-    list_name="Work"
-)
+**Example Response:**
+```json
+{
+  "result": "Deleted 1 reminder(s) named 'Team Meeting' from list 'Work'"
+}
 ```
 
-## Architecture
+## Output Schema
 
-The server uses:
-- **FastMCP**: For creating the MCP server and exposing tools
-- **AppleScript**: For interacting with the Apple Reminders app
-- **subprocess**: For executing AppleScript commands
-- **asyncio**: For asynchronous operations
+All tools return responses following this schema:
 
-## Error Handling
+```json
+{
+  "type": "object",
+  "properties": {
+    "result": {
+      "title": "Result",
+      "type": "string"
+    }
+  },
+  "required": ["result"],
+  "title": "ToolOutput"
+}
+```
 
-- All functions include try-catch blocks for error handling
-- AppleScript errors are captured and returned as formatted error messages
-- JSON responses include error fields when operations fail
+## Project Structure
 
-## Limitations
+```
+apple_reminder_mcp_server/
+├── server.py           # Main MCP server implementation
+├── requirements.txt    # Python dependencies
+├── .gitignore         # Git ignore file
+└── README.md          # This file
+```
 
-- Only works on macOS due to AppleScript dependency
-- Requires Apple Reminders app to be installed
-- Location-based reminders may require additional permissions
-- Date/time formatting must match AppleScript expectations
+## Troubleshooting
 
-## Security Considerations
+### Common Issues
 
-- The server runs locally by default
-- No authentication is implemented - add authentication if exposing externally
-- AppleScript commands are constructed with user input - ensure proper sanitization in production
+1. **"spawn python3 ENOENT" error in MCP Inspector**
+   - Use separate fields for command and arguments
+   - Command: `python3`
+   - Arguments: `/full/path/to/server.py`
+
+2. **"No reminder list found" error**
+   - Make sure the list name exactly matches (case-sensitive)
+   - Use `list_reminder_lists` to see available lists
+
+3. **Permission errors with AppleScript**
+   - Grant Terminal/IDE permission to control Reminders in System Preferences > Security & Privacy > Automation
+
+4. **MCP Inspector connection issues**
+   - Ensure the path in Arguments is absolute, not relative
+   - Check that Python 3 is in your system PATH
+   - Try using the full Python path: `/usr/bin/python3` or `/opt/homebrew/bin/python3`
+
+### Debug Mode
+
+To enable debug logging, modify the logging level in server.py:
+```python
+logging.basicConfig(level=logging.DEBUG)
+```
+
+### Verifying Server Operation
+
+You can verify the server is working by checking the terminal output:
+```
+INFO:root:Starting MCP server with stdio transport...
+```
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly on macOS
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Built with [FastMCP](https://github.com/modelcontextprotocol/fastmcp)
+- Uses AppleScript for native macOS integration
+- Compatible with the [Model Context Protocol](https://modelcontextprotocol.io)
+
+## Support
+
+For issues and questions:
+- Open an issue on GitHub
+- Check existing issues for solutions
+- Ensure you're running on macOS with proper permissions
+
+---
