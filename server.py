@@ -1,21 +1,16 @@
 from mcp.server.fastmcp import FastMCP
-from dotenv import load_dotenv
-import asyncio
 import json
-import os
 import subprocess
 import datetime
 from typing import Optional
+import logging
 
-load_dotenv()
-HOST = os.getenv("HOST")
-PORT = os.getenv("PORT")
+
+logging.basicConfig(level=logging.INFO)
 
 mcp = FastMCP(
     "mcp-apple-reminders",
-    description="MCP server for managing Apple Reminder",
-    host=HOST,
-    port=PORT
+    description="MCP server for managing Apple Reminder"
 )
 
 def run_applescript(script: str) -> str:
@@ -306,9 +301,9 @@ end tell
         result = run_applescript(script)
         
         if result.startswith("SUCCESS:"):
-            return f" {result[8:]}"  # Remove "SUCCESS:" prefix
+            return f" {result[8:]}"  
         elif result.startswith("NOT_FOUND:"):
-            return f" {result[10:]}"  # Remove "NOT_FOUND:" prefix
+            return f" {result[10:]}"  
         elif result.startswith("ERROR:"):
             return f" {result}"
         else:
@@ -316,30 +311,10 @@ end tell
             
     except Exception as e:
         return f"Failed to delete reminder: {str(e)}"
-
+    
 if __name__ == "__main__":
-    import asyncio
-
-    async def test_functions():
-        print("=== Creating a test reminder ===")
-        create_result = await create_reminder(
-            title="Test Reminder",
-            due_date=datetime.date(2026, 5, 30),
-            notes="This is a test note",
-            list_name="Reminders"
-        )
-        print(create_result)
-
-        print("\n=== Getting reminders from 'Reminders' list ===")
-        get_result = await get_reminder(list_name='Reminders')
-        print(get_result)
-
-        print("\n=== Listing all available reminder lists ===")
-        list_result = await list_reminder_lists()
-        print(list_result)
-
-        print("\n=== Deleting the test reminder ===")
-        delete_result = await delete_reminder(name="Test Reminder", list_name="Reminders")
-        print(delete_result)
-
-    asyncio.run(test_functions())
+    try:
+        logging.info("Starting MCP server with stdio transport...")
+        mcp.run() 
+    except Exception as e:
+        logging.error(f"Failed to start MCP server: {e}")
