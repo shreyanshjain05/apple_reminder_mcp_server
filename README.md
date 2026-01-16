@@ -172,6 +172,7 @@ apple_reminder_mcp_server/
 ├── server.py              # Main MCP server implementation
 └── README.md 
 ├── tests/
+│   ├── __init__.py
 │   └── test_server.py     # Unit tests
 ```
 
