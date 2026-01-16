@@ -10,7 +10,6 @@ logging.basicConfig(level=logging.INFO)
 
 mcp = FastMCP(
     "mcp-apple-reminders",
-    description="MCP server for managing Apple Reminder"
 )
 
 def run_applescript(script: str) -> str:
@@ -31,7 +30,7 @@ def run_applescript(script: str) -> str:
 @mcp.tool()
 async def create_reminder(
     title: str,
-    due_date: datetime.date,
+    due_date: str,
     due_time: Optional[str] = None,
     notes: Optional[str] = None,
     list_name: Optional[str] = "Reminder Created using Agent",
@@ -41,7 +40,7 @@ async def create_reminder(
     Create a new reminder in Apple Reminder.
     Args:
         title: The title of the reminder
-        due_date: Required due date (datetime.date)
+        due_date: Due date (e.g. "2024-12-25", "tomorrow", "next Friday", "30 Jan 2026")
         due_time: Required due time (Default 9 AM)
         notes: Optional notes/body text for the reminder
         list_name: Name of the reminders list (default: "Reminder Created using Agent")
@@ -50,6 +49,13 @@ async def create_reminder(
         Success message with reminder details 
     """
     try:
+        # Parse date
+        from dateutil import parser
+        try:
+            due_date_obj = parser.parse(due_date).date()
+        except:
+            return f"Error: Could not parse date '{due_date}'. Please use a standard format like YYYY-MM-DD."
+
         # Handle time input
         if due_time:
             # Convert string to time object
@@ -62,7 +68,7 @@ async def create_reminder(
             due_time_obj = datetime.time(9, 0, 0)  # Default to 9:00 AM
 
         # Combine date and time
-        full_due_datetime = datetime.datetime.combine(due_date, due_time_obj)
+        full_due_datetime = datetime.datetime.combine(due_date_obj, due_time_obj)
 
         # Format for AppleScript
         applescript_date = full_due_datetime.strftime('date "%-d %B %Y %H:%M:%S"')  # e.g., date "1 June 2025 15:30:00"

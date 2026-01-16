@@ -26,7 +26,7 @@ A Model Context Protocol (MCP) server that enables AI assistants to interact wit
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/apple-reminder-mcp-server.git
+git clone https://github.com/shreyanshjain05/apple-reminder-mcp-server.git
 cd apple-reminder-mcp-server
 ```
 
@@ -38,7 +38,7 @@ source .venv/bin/activate  # On macOS/Linux
 
 3. Install dependencies:
 ```bash
-pip install mcp fastmcp python-dotenv
+pip install -r requrirements.txt
 ```
 
 ## Configuration
@@ -60,7 +60,7 @@ The MCP Inspector is a web-based tool for testing MCP servers. Follow these step
 #### 1. Launch MCP Inspector
 
 ```bash
-npx @modelcontextprotocol/inspector stdio "python3 server.py"
+npx @modelcontextprotocol/inspector python3 server.py
 ```
 
 This will:
