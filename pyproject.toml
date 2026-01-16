@@ -36,13 +36,14 @@ dev = [
     "pytest-asyncio>=0.21.0",
 ]
 
-[project.scripts]
-apple-reminders-mcp = "apple_reminders_mcp.server:main"
-
 [project.urls]
 Homepage = "https://github.com/shreyanshjain05/apple_reminder_mcp_server"
 Repository = "https://github.com/shreyanshjain05/apple_reminder_mcp_server"
 Issues = "https://github.com/shreyanshjain05/apple_reminder_mcp_server/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["apple_reminders_mcp"]
+packages = ["."]
+include = ["server.py"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
