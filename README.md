@@ -17,6 +17,13 @@ A Model Context Protocol (MCP) server that enables AI assistants to interact wit
 - 🍎 Native macOS integration via AppleScript
 - 🔒 Input sanitization to prevent AppleScript injection
 
+## Demo
+
+
+https://github.com/user-attachments/assets/d36e0df3-ff4b-4f48-bb29-41ddb5483c6b
+
+
+
 ## Prerequisites
 
 - macOS (required for AppleScript)
