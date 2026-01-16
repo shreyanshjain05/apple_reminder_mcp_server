@@ -1,19 +1,36 @@
+"""Apple Reminders MCP Server implementation."""
+
 from mcp.server.fastmcp import FastMCP
 import json
 import subprocess
 import datetime
 from typing import Optional
 import logging
+from dateutil import parser as date_parser
 
+__version__ = "0.1.0"
 
 logging.basicConfig(level=logging.INFO)
 
-mcp = FastMCP(
-    "mcp-apple-reminders",
-)
+mcp = FastMCP("mcp-apple-reminders")
+
+
+def sanitize_for_applescript(text: str) -> str:
+    """
+    Sanitize user input to prevent AppleScript injection.
+    
+    Escapes backslashes and double quotes which could break or exploit AppleScript.
+    """
+    if text is None:
+        return ""
+    # Escape backslashes first, then double quotes
+    text = text.replace("\\", "\\\\")
+    text = text.replace('"', '\\"')
+    return text
+
 
 def run_applescript(script: str) -> str:
-    """Execute AppleScript and return the result"""
+    """Execute AppleScript and return the result."""
     try:
         result = subprocess.run(
             ["osascript", "-e", script],
@@ -23,9 +40,9 @@ def run_applescript(script: str) -> str:
         )
         return result.stdout.strip()
     except subprocess.CalledProcessError as e:
-        print(f"Command failed with return code {e.returncode}")
-        print(f"Error output: {e.stderr}")
+        logging.error(f"AppleScript failed with return code {e.returncode}: {e.stderr}")
         return ""
+
 
 @mcp.tool()
 async def create_reminder(
@@ -38,63 +55,74 @@ async def create_reminder(
 ) -> str:
     """
     Create a new reminder in Apple Reminder.
+    
     Args:
         title: The title of the reminder
         due_date: Due date (e.g. "2024-12-25", "tomorrow", "next Friday", "30 Jan 2026")
-        due_time: Required due time (Default 9 AM)
+        due_time: Due time in HHMMSS format (default: 090000 for 9 AM)
         notes: Optional notes/body text for the reminder
         list_name: Name of the reminders list (default: "Reminder Created using Agent")
         location: Location where reminder has to get activated
+        
     Returns:
-        Success message with reminder details 
+        Success message with reminder details
     """
     try:
         # Parse date
-        from dateutil import parser
         try:
-            due_date_obj = parser.parse(due_date).date()
-        except:
-            return f"Error: Could not parse date '{due_date}'. Please use a standard format like YYYY-MM-DD."
+            due_date_obj = date_parser.parse(due_date).date()
+        except Exception:
+            return f"Error: Could not parse date '{due_date}'. Please use a format like YYYY-MM-DD or 'tomorrow'."
 
         # Handle time input
         if due_time:
-            # Convert string to time object
-            due_time_obj = datetime.time(
-                int(due_time[:2]),   # hour
-                int(due_time[2:4]),  # minute
-                int(due_time[4:])    # second
-            )
+            try:
+                due_time_obj = datetime.time(
+                    int(due_time[:2]),
+                    int(due_time[2:4]),
+                    int(due_time[4:]) if len(due_time) > 4 else 0
+                )
+            except (ValueError, IndexError):
+                return f"Error: Invalid time format '{due_time}'. Use HHMMSS format (e.g., 140000 for 2 PM)."
         else:
-            due_time_obj = datetime.time(9, 0, 0)  # Default to 9:00 AM
+            due_time_obj = datetime.time(9, 0, 0)
 
         # Combine date and time
         full_due_datetime = datetime.datetime.combine(due_date_obj, due_time_obj)
 
         # Format for AppleScript
-        applescript_date = full_due_datetime.strftime('date "%-d %B %Y %H:%M:%S"')  # e.g., date "1 June 2025 15:30:00"
+        applescript_date = full_due_datetime.strftime('date "%-d %B %Y %H:%M:%S"')
 
-        script_part = [
+        # Sanitize all user inputs
+        safe_title = sanitize_for_applescript(title)
+        safe_notes = sanitize_for_applescript(notes) if notes else None
+        safe_location = sanitize_for_applescript(location) if location else None
+        safe_list_name = sanitize_for_applescript(list_name)
+
+        script_parts = [
             'tell application "Reminders"',
-            f'set newReminder to make new reminder with properties {{name:"{title}", due date:{applescript_date}'
+            f'set newReminder to make new reminder with properties {{name:"{safe_title}", due date:{applescript_date}'
         ]
         
-        if notes:
-            script_part[-1] += f', body:"{notes}"'
-        if location:
-            script_part[-1] += f', location:"{location}"'
-        script_part[-1] += '}'
+        if safe_notes:
+            script_parts[-1] += f', body:"{safe_notes}"'
+        if safe_location:
+            script_parts[-1] += f', location:"{safe_location}"'
+        script_parts[-1] += '}'
 
-        script_part.extend([
-            f'set targetList to list "{list_name}"',
+        script_parts.extend([
+            f'set targetList to list "{safe_list_name}"',
             'move newReminder to targetList',
             'end tell'
         ])
 
-        script = "\n".join(script_part)
+        script = "\n".join(script_parts)
         result = run_applescript(script)
         return f"Reminder '{title}' created successfully in list '{list_name}'. AppleScript Output: {result}"
     except Exception as e:
+        logging.exception("Failed to create reminder")
         return f"Failed to create reminder: {str(e)}"
+
 
 @mcp.tool()
 async def get_reminder(
@@ -106,9 +134,9 @@ async def get_reminder(
     Get reminders from Apple Reminders.
     
     Args:
-        list_name: The name of the reminder list (default is all lists).
-        completed: Whether to fetch completed reminders (default is False).
-        limit: Max number of reminders to fetch (default is 20).
+        list_name: The name of the reminder list (required).
+        completed: Whether to fetch completed reminders (default: False).
+        limit: Max number of reminders to fetch (default: 20).
     
     Returns:
         A JSON-formatted string of reminders.
@@ -117,14 +145,14 @@ async def get_reminder(
         if not list_name:
             return json.dumps({"error": "list_name is required"}, indent=2)
 
-        # Simplified AppleScript with better error handling
+        safe_list_name = sanitize_for_applescript(list_name)
         completed_str = "true" if completed else "false"
         
         script = f'''
 tell application "Reminders"
     set output to ""
     try
-        set targetList to list "{list_name}"
+        set targetList to list "{safe_list_name}"
         set allReminders to reminders of targetList
         
         repeat with currentReminder in allReminders
@@ -187,7 +215,9 @@ end tell
         return json.dumps(reminders, indent=2)
 
     except Exception as e:
+        logging.exception("Failed to get reminders")
         return json.dumps({"error": f"Failed to get reminders: {str(e)}"}, indent=2)
+
 
 @mcp.tool()
 async def list_reminder_lists() -> str:
@@ -225,7 +255,9 @@ end tell
         return json.dumps(list_names, indent=2)
         
     except Exception as e:
+        logging.exception("Failed to get reminder lists")
         return json.dumps({"error": f"Failed to get reminder lists: {str(e)}"}, indent=2)
+
 
 @mcp.tool()
 async def delete_reminder(
@@ -243,26 +275,28 @@ async def delete_reminder(
         Completion message indicating success or failure
     """
     try:
+        safe_name = sanitize_for_applescript(name)
+        
         if list_name:
-            # Search in specific list
+            safe_list_name = sanitize_for_applescript(list_name)
             script = f'''
 tell application "Reminders"
     set deletedCount to 0
     try
-        set targetList to list "{list_name}"
+        set targetList to list "{safe_list_name}"
         set allReminders to reminders of targetList
         
         repeat with currentReminder in allReminders
-            if name of currentReminder is "{name}" then
+            if name of currentReminder is "{safe_name}" then
                 delete currentReminder
                 set deletedCount to deletedCount + 1
             end if
         end repeat
         
         if deletedCount > 0 then
-            return "SUCCESS: Deleted " & deletedCount & " reminder(s) named '" & "{name}" & "' from list '" & "{list_name}" & "'"
+            return "SUCCESS: Deleted " & deletedCount & " reminder(s) named '{name}' from list '{list_name}'"
         else
-            return "NOT_FOUND: No reminder named '" & "{name}" & "' found in list '" & "{list_name}" & "'"
+            return "NOT_FOUND: No reminder named '{name}' found in list '{list_name}'"
         end if
         
     on error errorMessage
@@ -271,7 +305,6 @@ tell application "Reminders"
 end tell
 '''
         else:
-            # Search in all lists
             script = f'''
 tell application "Reminders"
     set deletedCount to 0
@@ -285,7 +318,7 @@ tell application "Reminders"
             set allReminders to reminders of currentList
             
             repeat with currentReminder in allReminders
-                if name of currentReminder is "{name}" then
+                if name of currentReminder is "{safe_name}" then
                     delete currentReminder
                     set deletedCount to deletedCount + 1
                 end if
@@ -293,9 +326,9 @@ tell application "Reminders"
         end repeat
         
         if deletedCount > 0 then
-            return "SUCCESS: Deleted " & deletedCount & " reminder(s) named '" & "{name}" & "'"
+            return "SUCCESS: Deleted " & deletedCount & " reminder(s) named '{name}'"
         else
-            return "NOT_FOUND: No reminder named '" & "{name}" & "' found in any list. Searched lists: " & searchedLists
+            return "NOT_FOUND: No reminder named '{name}' found in any list. Searched lists: " & searchedLists
         end if
         
     on error errorMessage
@@ -307,20 +340,24 @@ end tell
         result = run_applescript(script)
         
         if result.startswith("SUCCESS:"):
-            return f" {result[8:]}"  
+            return result[9:]
         elif result.startswith("NOT_FOUND:"):
-            return f" {result[10:]}"  
+            return result[11:]
         elif result.startswith("ERROR:"):
-            return f" {result}"
+            return result
         else:
             return f"Reminder deletion completed. {result}"
             
     except Exception as e:
+        logging.exception("Failed to delete reminder")
         return f"Failed to delete reminder: {str(e)}"
-    
+
+
+def main():
+    """Entry point for the MCP server."""
+    logging.info("Starting Apple Reminders MCP server...")
+    mcp.run()
+
+
 if __name__ == "__main__":
-    try:
-        logging.info("Starting MCP server with stdio transport...")
-        mcp.run() 
-    except Exception as e:
-        logging.error(f"Failed to start MCP server: {e}")
+    main()
