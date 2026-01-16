@@ -164,16 +164,15 @@ pytest tests/ -v
 
 ```
 apple_reminder_mcp_server/
-├── apple_reminders_mcp/
-│   ├── __init__.py
-│   └── server.py          # Main MCP server implementation
-├── tests/
-│   └── test_server.py     # Unit tests
 ├── .github/workflows/
 │   ├── test.yml           # CI testing
 │   └── publish.yml        # PyPI publishing
+│── __init__.py
 ├── pyproject.toml         # Package configuration
-└── README.md
+├── server.py              # Main MCP server implementation
+└── README.md 
+├── tests/
+│   └── test_server.py     # Unit tests
 ```
 
 ## Contributing
