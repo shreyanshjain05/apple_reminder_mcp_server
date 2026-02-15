@@ -1,8 +1,8 @@
 # Apple Reminders MCP Server
 
-[![PyPI version](https://badge.fury.io/py/apple-reminders-mcp.svg)](https://badge.fury.io/py/apple-reminders-mcp)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI version](https://badge.fury.io/py/apple-reminders-mcp.svg)](https://badge.fury.io/py/apple-reminders-mcp) 
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/) 
+[![Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0) 
 [![Tests](https://github.com/shreyanshjain05/apple_reminder_mcp_server/actions/workflows/test.yml/badge.svg)](https://github.com/shreyanshjain05/apple_reminder_mcp_server/actions/workflows/test.yml)
 
 A Model Context Protocol (MCP) server that enables AI assistants to interact with Apple Reminders on macOS. This server provides tools to create, read, list, and delete reminders programmatically through AppleScript.
